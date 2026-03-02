@@ -1,11 +1,13 @@
 import 'package:dartz/dartz.dart' hide Order;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/config/supabase_config.dart';
 import '../../../../core/constants/app_utils.dart';
 import '../../../../core/services/email_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../orders/domain/entities/order.dart';
+import '../../../orders/presentation/providers/invoice_provider.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
 import '../providers/admin_provider.dart';
 
@@ -197,6 +199,9 @@ class _AdminOrderCard extends ConsumerWidget {
             ),
 
             const SizedBox(height: 12),
+
+            // Invoice documents
+            _AdminInvoicesRow(orderId: order.id),
 
             // Status update actions
             if (_canUpdateStatus(order.status)) ...[
@@ -423,5 +428,68 @@ class _OrderStatusChip extends StatelessWidget {
       default:
         return AppColors.textSecondary;
     }
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// Admin invoices row — shows invoice/credit note links  
+// ─────────────────────────────────────────────────────────
+class _AdminInvoicesRow extends ConsumerWidget {
+  final String orderId;
+
+  const _AdminInvoicesRow({required this.orderId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final invoicesAsync = ref.watch(invoicesForOrderProvider(orderId));
+
+    return invoicesAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (invoices) {
+        if (invoices.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Divider(height: 20),
+            const Text('Documentos:',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: invoices.map((inv) {
+                final isCreditNote = inv.type == 'credit_note';
+                return OutlinedButton.icon(
+                  onPressed: () => context.push('/factura/${inv.id}'),
+                  icon: Icon(
+                    isCreditNote ? Icons.receipt_long : Icons.description_outlined,
+                    size: 16,
+                    color: isCreditNote ? AppColors.error : AppColors.black,
+                  ),
+                  label: Text(
+                    isCreditNote
+                        ? 'Abono ${inv.invoiceNumber}'
+                        : 'Factura ${inv.invoiceNumber}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isCreditNote ? AppColors.error : AppColors.textPrimary,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(
+                      color: isCreditNote ? AppColors.error.withValues(alpha: 0.5) : AppColors.divider,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    minimumSize: Size.zero,
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

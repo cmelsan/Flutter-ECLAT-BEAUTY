@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/config/supabase_config.dart';
 import '../../../../core/constants/app_utils.dart';
@@ -8,6 +9,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../providers/admin_provider.dart';
 import '../../../catalog/presentation/providers/catalog_provider.dart';
 import '../../../offers/presentation/providers/offers_provider.dart';
+import '../../../orders/presentation/providers/invoice_provider.dart';
 
 class AdminReturnsScreen extends ConsumerWidget {
   const AdminReturnsScreen({super.key});
@@ -337,6 +339,8 @@ class _ReturnOrderCardState extends ConsumerState<_ReturnOrderCard> {
                   ],
                 ),
               ),
+              const SizedBox(height: 8),
+              _ReturnInvoicesRow(orderId: order['id'] as String),
             ],
           ],
         ),
@@ -825,6 +829,63 @@ class _OrderStatusChip extends StatelessWidget {
         border: Border.all(color: color),
       ),
       child: Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// Invoice buttons for completed returns
+// ─────────────────────────────────────────────────────────
+class _ReturnInvoicesRow extends ConsumerWidget {
+  final String orderId;
+
+  const _ReturnInvoicesRow({required this.orderId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final invoicesAsync = ref.watch(invoicesForOrderProvider(orderId));
+
+    return invoicesAsync.when(
+      loading: () => const SizedBox(
+        height: 32,
+        child: Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (invoices) {
+        if (invoices.isEmpty) return const SizedBox.shrink();
+
+        return Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: invoices.map((inv) {
+            final isCreditNote = inv.type == 'credit_note';
+            return OutlinedButton.icon(
+              onPressed: () => context.push('/factura/${inv.id}'),
+              icon: Icon(
+                isCreditNote ? Icons.receipt_long : Icons.description_outlined,
+                size: 16,
+                color: isCreditNote ? AppColors.error : AppColors.black,
+              ),
+              label: Text(
+                isCreditNote
+                    ? 'Ver abono ${inv.invoiceNumber}'
+                    : 'Ver factura ${inv.invoiceNumber}',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isCreditNote ? AppColors.error : AppColors.textPrimary,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(
+                  color: isCreditNote ? AppColors.error.withValues(alpha: 0.5) : AppColors.divider,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                minimumSize: Size.zero,
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 }

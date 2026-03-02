@@ -15,10 +15,7 @@ class ReviewsDataSource {
     try {
       var query = _supabase
           .from('reviews')
-          .select('''
-            *,
-            user:profiles!reviews_user_id_fkey(id, email)
-          ''')
+          .select('*')
           .eq('product_id', productId)
           .order('created_at', ascending: false);
 

@@ -15,12 +15,17 @@ class ReviewRepository {
     try {
       final data = await _client
           .from('reviews')
-          .select('*, profile:profiles(email)')
+          .select('*')
           .eq('product_id', productId)
           .order('created_at', ascending: false);
 
+      final reviews = data as List;
+
+      // Fetch profile emails separately — there is no direct FK from reviews to profiles
+      await _attachProfiles(reviews);
+
       return Right(
-        (data as List).map((e) => Review.fromJson(e)).toList(),
+        reviews.map((e) => Review.fromJson(e)).toList(),
       );
     } catch (e) {
       return Left(ServerFailure(e.toString()));
@@ -54,7 +59,7 @@ class ReviewRepository {
     try {
       final data = await _client
           .from('reviews')
-          .select('*, profile:profiles(email)')
+          .select('*')
           .eq('product_id', productId)
           .eq('user_id', userId)
           .maybeSingle();
@@ -62,6 +67,9 @@ class ReviewRepository {
       if (data == null) {
         return const Right(null);
       }
+
+      // Attach profile email
+      await _attachProfiles([data]);
 
       return Right(Review.fromJson(data));
     } catch (e) {
@@ -142,7 +150,10 @@ class ReviewRepository {
         'user_id': userId,
         'rating': rating,
         'comment': ?comment,
-      }).select('*, profile:profiles(email)').single();
+      }).select('*').single();
+
+      // Attach profile email
+      await _attachProfiles([data]);
 
       return Right(Review.fromJson(data));
     } catch (e) {
@@ -169,12 +180,41 @@ class ReviewRepository {
           })
           .eq('id', reviewId)
           .eq('user_id', userId)
-          .select('*, profile:profiles(email)')
+          .select('*')
           .single();
+
+      // Attach profile email
+      await _attachProfiles([data]);
 
       return Right(Review.fromJson(data));
     } catch (e) {
       return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  /// Batch-fetch profiles for a list of review maps and attach as 'profile' key.
+  /// Falls back silently if profiles can't be fetched (RLS, etc.).
+  Future<void> _attachProfiles(List<dynamic> reviews) async {
+    if (reviews.isEmpty) return;
+    try {
+      final userIds = reviews
+          .map((r) => r['user_id'] as String)
+          .toSet()
+          .toList();
+      final profilesData = await _client
+          .from('profiles')
+          .select('id, email')
+          .inFilter('id', userIds);
+      final profileMap = <String, Map<String, dynamic>>{};
+      for (final p in (profilesData as List)) {
+        profileMap[p['id'] as String] = p;
+      }
+      for (final review in reviews) {
+        final uid = review['user_id'] as String;
+        review['profile'] = profileMap[uid];
+      }
+    } catch (_) {
+      // Non-critical: if profiles can't be fetched, reviews still display with generic names
     }
   }
 

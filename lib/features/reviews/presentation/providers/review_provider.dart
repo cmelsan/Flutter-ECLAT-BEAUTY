@@ -10,7 +10,7 @@ final reviewRepositoryProvider = Provider<ReviewRepository>((ref) {
 
 /// Reviews for a specific product
 final productReviewsProvider =
-    FutureProvider.family<List<Review>, String>((ref, productId) async {
+    FutureProvider.autoDispose.family<List<Review>, String>((ref, productId) async {
   final repo = ref.watch(reviewRepositoryProvider);
   final result = await repo.getProductReviews(productId);
   return result.fold((f) => [], (reviews) => reviews);
@@ -18,7 +18,7 @@ final productReviewsProvider =
 
 /// Rating summary for a specific product
 final productRatingProvider =
-    FutureProvider.family<ProductRating?, String>((ref, productId) async {
+    FutureProvider.autoDispose.family<ProductRating?, String>((ref, productId) async {
   final repo = ref.watch(reviewRepositoryProvider);
   final result = await repo.getProductRating(productId);
   return result.fold((f) => null, (rating) => rating);
@@ -26,7 +26,7 @@ final productRatingProvider =
 
 /// User's review for a specific product
 final userReviewProvider =
-    FutureProvider.family<Review?, String>((ref, productId) async {
+    FutureProvider.autoDispose.family<Review?, String>((ref, productId) async {
   final client = ref.watch(supabaseClientProvider);
   final userId = client.auth.currentUser?.id;
   
@@ -42,7 +42,7 @@ final userReviewProvider =
 
 /// Check if user can review a product
 final canUserReviewProvider =
-    FutureProvider.family<bool, String>((ref, productId) async {
+    FutureProvider.autoDispose.family<bool, String>((ref, productId) async {
   final client = ref.watch(supabaseClientProvider);
   final userId = client.auth.currentUser?.id;
   

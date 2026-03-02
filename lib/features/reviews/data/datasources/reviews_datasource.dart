@@ -17,7 +17,7 @@ class ReviewsDataSource {
           .from('reviews')
           .select('''
             *,
-            user:profiles!reviews_user_id_fkey(id, full_name)
+            user:profiles!reviews_user_id_fkey(id, email)
           ''')
           .eq('product_id', productId)
           .order('created_at', ascending: false);
@@ -210,7 +210,7 @@ class ReviewsDataSource {
           .select('''
             *,
             product:products!reviews_product_id_fkey(id, name, slug, images),
-            user:profiles!reviews_user_id_fkey(id, full_name)
+            user:profiles!reviews_user_id_fkey(id, email)
           ''')
           .order('created_at', ascending: false);
 

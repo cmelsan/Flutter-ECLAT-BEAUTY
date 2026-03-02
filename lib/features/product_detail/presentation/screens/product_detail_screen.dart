@@ -27,6 +27,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   int _quantity = 1;
 
   @override
+  void initState() {
+    super.initState();
+    // Always fetch fresh data — the catalog list may have stale stock info
+    Future.microtask(() {
+      ref.invalidate(productBySlugProvider(widget.productSlug));
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final productAsync = ref.watch(enrichedProductBySlugProvider(widget.productSlug));
 

@@ -5,11 +5,16 @@ import 'package:badges/badges.dart' as badges;
 
 import '../theme/app_colors.dart';
 import '../../features/cart/presentation/providers/cart_provider.dart';
+import '../../features/catalog/presentation/providers/catalog_provider.dart';
+import '../../features/offers/presentation/providers/offers_provider.dart';
 
-class MainShell extends ConsumerWidget {
+class MainShell extends ConsumerStatefulWidget {
   final Widget child;
 
   const MainShell({super.key, required this.child});
+
+  @override
+  ConsumerState<MainShell> createState() => _MainShellState();
 
   static int _calculateSelectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
@@ -20,17 +25,52 @@ class MainShell extends ConsumerWidget {
     if (location == '/mi-cuenta') return 4;
     return 0;
   }
+}
+
+class _MainShellState extends ConsumerState<MainShell>
+    with WidgetsBindingObserver {
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selectedIndex = _calculateSelectedIndex(context);
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Refresh catalog data when app returns to foreground
+    if (state == AppLifecycleState.resumed) {
+      _refreshCatalogData();
+    }
+  }
+
+  void _refreshCatalogData() {
+    ref.invalidate(featuredProductsProvider);
+    ref.invalidate(enrichedFeaturedProductsProvider);
+    ref.invalidate(categoriesProvider);
+    ref.invalidate(offersProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedIndex = MainShell._calculateSelectedIndex(context);
     final cartCount = ref.watch(cartCountProvider);
 
     return Scaffold(
-      body: child,
+      body: widget.child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
         onDestinationSelected: (index) {
+          // Refresh catalog data whenever navigating to Home tab
+          if (index == 0) {
+            _refreshCatalogData();
+          }
           switch (index) {
             case 0:
               context.go('/');

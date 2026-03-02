@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
+import '../../../catalog/presentation/providers/catalog_provider.dart';
+import '../../../offers/presentation/providers/offers_provider.dart';
 
 class CheckoutSuccessScreen extends ConsumerStatefulWidget {
   final String? sessionId;
@@ -29,9 +31,13 @@ class _CheckoutSuccessScreenState extends ConsumerState<CheckoutSuccessScreen>
   void initState() {
     super.initState();
     
-    // Clear cart on success
+    // Clear cart and invalidate catalog data so stock is refreshed
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(cartProvider.notifier).clearCart();
+      // Invalidate all product/catalog providers so stock reflects the purchase
+      ref.invalidate(featuredProductsProvider);
+      ref.invalidate(enrichedFeaturedProductsProvider);
+      ref.invalidate(offersProvider);
     });
 
     // Setup animations

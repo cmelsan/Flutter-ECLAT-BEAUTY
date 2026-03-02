@@ -58,9 +58,9 @@ final productsByBrandProvider =
   return result.fold((f) => throw Exception(f.message), (products) => products);
 });
 
-/// Product detail by slug
+/// Product detail by slug (autoDispose to always refetch on remount)
 final productBySlugProvider =
-    FutureProvider.family<Product, String>((ref, slug) async {
+    FutureProvider.autoDispose.family<Product, String>((ref, slug) async {
   final repo = ref.watch(catalogRepositoryProvider);
   final result = await repo.getProductBySlug(slug);
   return result.fold((f) => throw Exception(f.message), (product) => product);
@@ -73,7 +73,7 @@ final productBySlugProvider =
 /// sale pricing. Otherwise, if the product appears in `featured_offers`,
 /// we apply the rebaja discount via [Product.copyWith].
 final enrichedProductBySlugProvider =
-    FutureProvider.family<Product, String>((ref, slug) async {
+    FutureProvider.autoDispose.family<Product, String>((ref, slug) async {
   final product = await ref.watch(productBySlugProvider(slug).future);
 
   // If already has active flash sale, skip rebajas (flash > rebajas > base)
@@ -128,7 +128,7 @@ final searchResultsProvider = FutureProvider<List<Product>>((ref) async {
 
 /// Related products by category (excluding current product)
 final relatedProductsProvider =
-    FutureProvider.family<List<Product>, ({String categoryId, String excludeProductId})>(
+    FutureProvider.autoDispose.family<List<Product>, ({String categoryId, String excludeProductId})>(
   (ref, params) async {
     final repo = ref.watch(catalogRepositoryProvider);
     final result = await repo.getProducts(

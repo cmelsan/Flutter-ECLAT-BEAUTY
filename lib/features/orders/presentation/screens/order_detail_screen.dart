@@ -326,6 +326,11 @@ class _OrderDetailBody extends ConsumerWidget {
     final returnableItems = order.orderItems.where((item) =>
         item.returnStatus == null || item.returnStatus == 'rejected').toList();
 
+    debugPrint('[Return] Returnable items: ${returnableItems.length}');
+    for (final item in returnableItems) {
+      debugPrint('[Return]   item.id=${item.id}, returnStatus=${item.returnStatus}');
+    }
+
     if (returnableItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No hay productos disponibles para devolver.')),
@@ -406,6 +411,10 @@ class _OrderDetailBody extends ConsumerWidget {
         },
       ),
     );
+
+    debugPrint('[Return] Dialog result: confirmed=$confirmed, context.mounted=${context.mounted}');
+    debugPrint('[Return] Selected items: $selectedItems');
+    debugPrint('[Return] Reason: "${reasonCtrl.text.trim()}"');
 
     if (confirmed == true && context.mounted) {
       if (reasonCtrl.text.trim().isEmpty) {

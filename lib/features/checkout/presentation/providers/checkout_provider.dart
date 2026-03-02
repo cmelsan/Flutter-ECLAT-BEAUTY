@@ -5,6 +5,8 @@ import '../../../../core/config/supabase_config.dart';
 import '../../../../core/services/email_service.dart';
 import '../../../cart/domain/entities/cart_item.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
+import '../../../catalog/presentation/providers/catalog_provider.dart';
+import '../../../offers/presentation/providers/offers_provider.dart';
 import '../../../orders/presentation/providers/order_provider.dart';
 import '../../data/repositories/checkout_repository.dart';
 import '../../data/services/stripe_service.dart';
@@ -219,6 +221,10 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
                      _ref.read(cartProvider.notifier).clearCart();                    
                     // IMPORTANTE: Refrescar la lista de pedidos al completar la compra
                     _ref.invalidate(myOrdersProvider);
+                    // Refrescar catálogo/ofertas para que el stock se actualice
+                    _ref.invalidate(featuredProductsProvider);
+                    _ref.invalidate(enrichedFeaturedProductsProvider);
+                    _ref.invalidate(offersProvider);
 
                      // Send order confirmation email (non-blocking)
                      // The webhook may also send it, but we ensure it
@@ -257,6 +263,10 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
           await _repo.updateOrderStatusToPaid(orderId);
           await _repo.decreaseStockForItems(rpcItems);
           _ref.read(cartProvider.notifier).clearCart();
+          _ref.invalidate(myOrdersProvider);
+          _ref.invalidate(featuredProductsProvider);
+          _ref.invalidate(enrichedFeaturedProductsProvider);
+          _ref.invalidate(offersProvider);
           state = state.copyWith(
             isLoading: false,
             orderId: orderId,

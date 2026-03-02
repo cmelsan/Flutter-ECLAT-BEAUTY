@@ -189,7 +189,7 @@ class _ReviewItem extends StatelessWidget {
               radius: 20,
               backgroundColor: AppColors.primaryLight,
               child: Text(
-                _getInitials((review.profile?['full_name'] as String?) ?? 'Usuario'),
+                _getInitials(_displayName(review)),
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -202,7 +202,7 @@ class _ReviewItem extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    (review.profile?['full_name'] as String?) ?? 'Usuario',
+                    _displayName(review),
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
@@ -285,6 +285,15 @@ class _ReviewItem extends StatelessWidget {
         ],
       ],
     );
+  }
+
+  /// Derive a display name from profile email (full_name doesn't exist in DB)
+  String _displayName(Review review) {
+    final email = review.profile?['email'] as String?;
+    if (email != null && email.contains('@')) {
+      return email.split('@').first;
+    }
+    return 'Usuario';
   }
 
   String _getInitials(String name) {

@@ -15,7 +15,7 @@ class ReviewRepository {
     try {
       final data = await _client
           .from('reviews')
-          .select('*, profile:profiles(email, full_name)')
+          .select('*, profile:profiles(email)')
           .eq('product_id', productId)
           .order('created_at', ascending: false);
 
@@ -54,7 +54,7 @@ class ReviewRepository {
     try {
       final data = await _client
           .from('reviews')
-          .select('*, profile:profiles(email, full_name)')
+          .select('*, profile:profiles(email)')
           .eq('product_id', productId)
           .eq('user_id', userId)
           .maybeSingle();
@@ -142,7 +142,7 @@ class ReviewRepository {
         'user_id': userId,
         'rating': rating,
         'comment': ?comment,
-      }).select('*, profile:profiles(email, full_name)').single();
+      }).select('*, profile:profiles(email)').single();
 
       return Right(Review.fromJson(data));
     } catch (e) {
@@ -169,7 +169,7 @@ class ReviewRepository {
           })
           .eq('id', reviewId)
           .eq('user_id', userId)
-          .select('*, profile:profiles(email, full_name)')
+          .select('*, profile:profiles(email)')
           .single();
 
       return Right(Review.fromJson(data));

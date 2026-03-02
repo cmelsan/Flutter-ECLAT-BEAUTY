@@ -65,20 +65,67 @@ class OrderRepository {
     }
   }
 
-  /// Request return
+  /// Request return — implemented client-side because the RPC has a
+  /// changed_by_type='customer' bug that violates the DB CHECK constraint
+  /// (only 'user','admin','system' are allowed).
   Future<Either<Failure, void>> requestReturn({
     required String orderId,
     required String reason,
     List<String>? itemIds,
   }) async {
     try {
-      await _client.rpc('request_return', params: {
-        'p_order_id': orderId,
-        'p_reason': reason,
-        if (itemIds != null && itemIds.isNotEmpty) 'p_item_ids': itemIds,
+      final userId = _client.auth.currentUser?.id;
+
+      // 1. Validate order exists and is delivered
+      final orderData = await _client
+          .from('orders')
+          .select('id, status, delivered_at')
+          .eq('id', orderId)
+          .single();
+
+      final currentStatus = orderData['status'] as String?;
+      if (currentStatus != 'delivered') {
+        return Left(ServerFailure(
+          'Solo se pueden devolver pedidos entregados (estado actual: $currentStatus)',
+        ));
+      }
+
+      // 2. Mark selected order_items as 'requested'
+      if (itemIds != null && itemIds.isNotEmpty) {
+        await _client
+            .from('order_items')
+            .update({'return_status': 'requested', 'return_reason': reason})
+            .eq('order_id', orderId)
+            .inFilter('id', itemIds);
+      } else {
+        await _client
+            .from('order_items')
+            .update({'return_status': 'requested', 'return_reason': reason})
+            .eq('order_id', orderId);
+      }
+
+      // 3. Update order status
+      await _client.from('orders').update({
+        'status': 'return_requested',
+        'return_reason': reason,
+        'return_initiated_at': DateTime.now().toUtc().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', orderId);
+
+      // 4. Insert history with the CORRECT changed_by_type value
+      await _client.from('order_status_history').insert({
+        'order_id': orderId,
+        'from_status': currentStatus,
+        'to_status': 'return_requested',
+        'changed_by': userId,
+        'changed_by_type': 'user',
+        'notes': 'Motivo: $reason',
       });
+
+      debugPrint('[Return] Success — order $orderId → return_requested');
       return const Right(null);
     } catch (e) {
+      debugPrint('[Return] Exception: $e');
       return Left(ServerFailure(ErrorMapper.mapSupabaseError(e)));
     }
   }

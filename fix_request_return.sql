@@ -10,6 +10,10 @@
 -- EJECUTAR EN SUPABASE SQL EDITOR
 -- ============================================================
 
+-- Eliminar la función existente (tiene un tipo de retorno diferente)
+DROP FUNCTION IF EXISTS request_return(UUID, TEXT);
+DROP FUNCTION IF EXISTS request_return(UUID, TEXT, UUID[]);
+
 CREATE OR REPLACE FUNCTION request_return(
     p_order_id UUID,
     p_reason TEXT,

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/config/supabase_config.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/app_utils.dart';
 import '../../../../core/services/email_service.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../domain/entities/invoice.dart';
 import '../../domain/entities/order.dart';
+import '../providers/invoice_provider.dart';
 import '../providers/order_provider.dart';
 
 class OrderDetailScreen extends ConsumerWidget {
@@ -181,6 +184,10 @@ class _OrderDetailBody extends ConsumerWidget {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+
+          // Invoices / Facturas
+          _InvoicesSection(orderId: order.id),
           const SizedBox(height: 16),
 
           // Shipping address
@@ -876,5 +883,95 @@ class _StatusChip extends StatelessWidget {
       default:
         return AppColors.textSecondary;
     }
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// Invoices section — shows invoice/credit note buttons for the order
+// ─────────────────────────────────────────────────────────
+class _InvoicesSection extends ConsumerWidget {
+  final String orderId;
+
+  const _InvoicesSection({required this.orderId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final invoicesAsync = ref.watch(invoicesForOrderProvider(orderId));
+
+    return invoicesAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (invoices) {
+        if (invoices.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Documentos',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            ...invoices.map((inv) => _InvoiceTile(invoice: inv)),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _InvoiceTile extends StatelessWidget {
+  final Invoice invoice;
+
+  const _InvoiceTile({required this.invoice});
+
+  @override
+  Widget build(BuildContext context) {
+    final isCreditNote = invoice.type == 'credit_note';
+    final icon = isCreditNote ? Icons.receipt_long : Icons.description_outlined;
+    final label = isCreditNote
+        ? 'Factura de abono${invoice.creditNoteScope == 'partial' ? ' (parcial)' : ''}'
+        : 'Factura de venta';
+    final color = isCreditNote ? AppColors.error : AppColors.black;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Icon(icon, color: color),
+        title: Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: color,
+          ),
+        ),
+        subtitle: Text(
+          invoice.invoiceNumber,
+          style: TextStyle(
+            fontSize: 12,
+            fontFamily: 'monospace',
+            color: AppColors.textTertiary,
+          ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              AppUtils.formatPrice(invoice.totalAmount.abs()),
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: isCreditNote ? AppColors.error : AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right, color: AppColors.textTertiary),
+          ],
+        ),
+        onTap: () => context.push('/factura/${invoice.id}'),
+      ),
+    );
   }
 }

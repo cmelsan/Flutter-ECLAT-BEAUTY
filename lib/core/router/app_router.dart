@@ -18,6 +18,7 @@ import '../../features/checkout/presentation/screens/checkout_screen.dart';
 import '../../features/checkout/presentation/screens/checkout_success_screen.dart';
 import '../../features/checkout/presentation/screens/stripe_webview_screen.dart';
 import '../../features/orders/presentation/screens/order_detail_screen.dart';
+import '../../features/orders/presentation/screens/invoice_detail_screen.dart';
 import '../../features/orders/presentation/screens/orders_screen.dart';
 import '../../features/catalog/presentation/screens/products_list_screen.dart';
 import '../../features/product_detail/presentation/screens/product_detail_screen.dart';
@@ -54,7 +55,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Protected routes requiring authentication
       final protectedPaths = ['/pedidos', '/mi-cuenta', '/direcciones', '/editar-perfil'];
-      if (protectedPaths.contains(path) && !isAuthenticated) {
+      if ((protectedPaths.contains(path) || path.startsWith('/factura/') || path.startsWith('/pedido/')) && !isAuthenticated) {
         return '/login';
       }
 
@@ -259,6 +260,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => OrderDetailScreen(
           orderId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/factura/:id',
+        name: 'invoiceDetail',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => InvoiceDetailScreen(
+          invoiceId: state.pathParameters['id']!,
         ),
       ),
       GoRoute(

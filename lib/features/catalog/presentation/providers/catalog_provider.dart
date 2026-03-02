@@ -78,20 +78,17 @@ final enrichedProductBySlugProvider =
 
   // If already has active flash sale, skip rebajas (flash > rebajas > base)
   if (product.isFlashSale && product.flashSaleDiscount != null) {
-    final endTime = product.flashSaleEndTime;
-    final isActive = endTime == null || endTime.isAfter(DateTime.now().toUtc());
-    if (isActive) {
-      // Apply flash sale pricing to discountedPrice so effectivePrice works
-      final flashPrice = OffersRepository.calculateDiscountedPrice(
-        product.price,
-        product.flashSaleDiscount!,
-      );
-      return product.copyWith(
-        discountedPrice: flashPrice,
-        discount: product.flashSaleDiscount!.toInt(),
-        offerLabel: 'Flash Sale',
-      );
-    }
+    // Apply flash sale pricing — the admin flag `is_flash_sale` controls
+    // activation; `flash_sale_end_time` is only for countdown UI.
+    final flashPrice = OffersRepository.calculateDiscountedPrice(
+      product.price,
+      product.flashSaleDiscount!,
+    );
+    return product.copyWith(
+      discountedPrice: flashPrice,
+      discount: product.flashSaleDiscount!.toInt(),
+      offerLabel: 'Flash Sale',
+    );
   }
 
   // Check if product is in featured_offers (rebajas)
@@ -155,22 +152,18 @@ List<Product> _enrichProducts(
   Map<String, num> offersMap,
 ) {
   return products.map((product) {
-    // Flash sale takes priority
+    // Flash sale takes priority — the admin flag `is_flash_sale` is the sole
+    // switch; `flash_sale_end_time` is only used for the countdown UI.
     if (product.isFlashSale && product.flashSaleDiscount != null) {
-      final endTime = product.flashSaleEndTime;
-      final isActive =
-          endTime == null || endTime.isAfter(DateTime.now().toUtc());
-      if (isActive) {
-        final flashPrice = OffersRepository.calculateDiscountedPrice(
-          product.price,
-          product.flashSaleDiscount!,
-        );
-        return product.copyWith(
-          discountedPrice: flashPrice,
-          discount: product.flashSaleDiscount!.toInt(),
-          offerLabel: 'Flash Sale',
-        );
-      }
+      final flashPrice = OffersRepository.calculateDiscountedPrice(
+        product.price,
+        product.flashSaleDiscount!,
+      );
+      return product.copyWith(
+        discountedPrice: flashPrice,
+        discount: product.flashSaleDiscount!.toInt(),
+        offerLabel: 'Flash Sale',
+      );
     }
 
     // Then rebajas

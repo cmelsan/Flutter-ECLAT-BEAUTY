@@ -36,17 +36,32 @@ class ReviewRepository {
     String productId,
   ) async {
     try {
+      // Compute rating from reviews table (the `product_ratings` DB view
+      // may not exist, so we aggregate client-side).
       final data = await _client
-          .from('product_ratings')
-          .select()
-          .eq('product_id', productId)
-          .maybeSingle();
+          .from('reviews')
+          .select('rating')
+          .eq('product_id', productId);
 
-      if (data == null) {
+      final reviews = data as List;
+      if (reviews.isEmpty) {
         return const Right(null);
       }
 
-      return Right(ProductRating.fromJson(data));
+      final ratings = reviews.map((r) => (r['rating'] as num).toInt()).toList();
+      final avg = ratings.reduce((a, b) => a + b) / ratings.length;
+
+      final distribution = <String, int>{};
+      for (var i = 1; i <= 5; i++) {
+        distribution[i.toString()] = ratings.where((r) => r == i).length;
+      }
+
+      return Right(ProductRating(
+        productId: productId,
+        avgRating: avg,
+        totalReviews: ratings.length,
+        ratingDistribution: distribution,
+      ));
     } catch (e) {
       return Left(ServerFailure(e.toString()));
     }

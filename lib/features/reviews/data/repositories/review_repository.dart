@@ -74,20 +74,44 @@ class ReviewRepository {
     required String userId,
   }) async {
     try {
-      // Check if user has purchased the product
-      final hasPurchased = await _client.rpc(
-        'user_has_purchased_product',
-        params: {
-          'p_user_id': userId,
-          'p_product_id': productId,
-        },
-      );
+      // Mirror the logic from the original web app (can-review.ts):
+      // Only allow reviews after delivery (and post-delivery statuses)
+      final reviewableStatuses = [
+        'delivered',
+        'return_requested',
+        'returned',
+        'partially_returned',
+        'refunded',
+        'partially_refunded',
+      ];
 
-      if (!hasPurchased) {
+      // 1. Find user's orders with a reviewable status
+      final purchasesResponse = await _client
+          .from('orders')
+          .select('id')
+          .eq('user_id', userId)
+          .inFilter('status', reviewableStatuses);
+
+      final purchases = purchasesResponse as List;
+      if (purchases.isEmpty) {
         return const Right(false);
       }
 
-      // Check if user already reviewed
+      // 2. Check if product is in any of those delivered orders
+      final orderIds = purchases.map((o) => o['id'] as String).toList();
+      final orderItemsResponse = await _client
+          .from('order_items')
+          .select('order_id')
+          .eq('product_id', productId)
+          .inFilter('order_id', orderIds)
+          .limit(1);
+
+      final orderItems = orderItemsResponse as List;
+      if (orderItems.isEmpty) {
+        return const Right(false);
+      }
+
+      // 3. Check if user already reviewed this product
       final existingReview = await getUserReview(
         productId: productId,
         userId: userId,

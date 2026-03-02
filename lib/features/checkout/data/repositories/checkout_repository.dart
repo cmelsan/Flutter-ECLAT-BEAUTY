@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dartz/dartz.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/errors/failures.dart';
@@ -95,6 +96,7 @@ class CheckoutRepository {
         'p_shipping_address': shippingAddress,
         'p_guest_email': ?guestEmail,
         'p_customer_name': ?customerName,
+        'p_coupon_id': ?couponId,
       });
 
       final orderId = result['order_id'] as String;
@@ -116,6 +118,47 @@ class CheckoutRepository {
       });
     } catch (e) {
       return Left(ServerFailure(ErrorMapper.mapSupabaseError(e)));
+    }
+  }
+
+  /// Decrement stock for purchased items after successful payment.
+  /// Calls `decrease_product_stock_atomic` RPC for each item.
+  /// This is a safety net — the Stripe webhook also decrements stock,
+  /// but if the webhook is slow or fails, this guarantees consistency.
+  Future<void> decreaseStockForItems(List<Map<String, dynamic>> items) async {
+    for (final item in items) {
+      try {
+        final result = await _client.rpc('decrease_product_stock_atomic', params: {
+          'p_product_id': item['product_id'],
+          'p_quantity': item['quantity'],
+        });
+
+        final success = result is Map ? result['success'] == true : false;
+        if (!success) {
+          debugPrint(
+            '[Stock] Warning: decrease_product_stock_atomic failed for '
+            '${item['product_id']}: $result',
+          );
+        }
+      } catch (e) {
+        debugPrint(
+          '[Stock] Error decreasing stock for ${item['product_id']}: $e',
+        );
+      }
+    }
+  }
+
+  /// Update order status to 'paid' after successful payment.
+  /// This ensures idempotency: the Stripe webhook will skip the order
+  /// if it's already marked as 'paid'.
+  Future<void> updateOrderStatusToPaid(String orderId) async {
+    try {
+      await _client.rpc('update_order_status', params: {
+        'p_order_id': orderId,
+        'p_new_status': 'paid',
+      });
+    } catch (e) {
+      debugPrint('[Checkout] Error updating order status to paid: $e');
     }
   }
 }

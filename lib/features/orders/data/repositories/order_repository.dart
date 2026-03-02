@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart' hide Order;
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/errors/failures.dart';
 import '../../domain/entities/order.dart';
@@ -135,7 +136,7 @@ class OrderRepository {
       if (userIds.isNotEmpty) {
         final profiles = await _client
             .from('profiles')
-            .select('id, email, full_name')
+            .select('id, email')
             .inFilter('id', userIds);
         for (final p in profiles as List) {
           profilesMap[p['id'] as String] = Map<String, dynamic>.from(p);
@@ -148,11 +149,9 @@ class OrderRepository {
         final userId = o['user_id'] as String?;
         final profile = userId != null ? profilesMap[userId] : null;
         if (profile != null) {
-          // Fill in name from profile when not already on the order
+          // Fill in name from profile email when not already on the order
           if ((o['customer_name'] as String?)?.isEmpty != false) {
-            o['customer_name'] = (profile['full_name'] as String?)?.isNotEmpty == true
-                ? profile['full_name']
-                : profile['email'];
+            o['customer_name'] = profile['email'];
           }
           // Fill in email via guest_email field when it is absent (registered users)
           if ((o['guest_email'] as String?)?.isEmpty != false) {
@@ -166,6 +165,7 @@ class OrderRepository {
         enriched.map((e) => Order.fromJson(e)).toList(),
       );
     } catch (e) {
+      debugPrint('❌ getAllOrders error: $e');
       return Left(ServerFailure(ErrorMapper.mapSupabaseError(e)));
     }
   }
@@ -179,7 +179,8 @@ class OrderRepository {
     try {
       await _client.rpc('update_order_status', params: {
         'p_order_id': orderId,
-        'p_status': newStatus,
+        'p_new_status': newStatus,
+        if (notes != null) 'p_notes': notes,
       });
       return const Right(null);
     } catch (e) {

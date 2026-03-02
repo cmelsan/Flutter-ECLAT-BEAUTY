@@ -125,12 +125,12 @@ class _StatsRow extends StatelessWidget {
     return Row(
       children: [
         _StatCard(label: 'Total', value: total, color: AppColors.textSecondary),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         _StatCard(label: 'Pendientes', value: pending, color: Colors.orange),
-        const SizedBox(width: 8),
-        _StatCard(label: 'Por reembolsar', value: awaitingRefund, color: Colors.blue),
-        const SizedBox(width: 8),
-        _StatCard(label: 'Reembolsados', value: refunded, color: Colors.green),
+        const SizedBox(width: 6),
+        _StatCard(label: 'Por\nreembolsar', value: awaitingRefund, color: Colors.blue),
+        const SizedBox(width: 6),
+        _StatCard(label: 'Reembol-\nsados', value: refunded, color: Colors.green),
       ],
     );
   }
@@ -157,7 +157,7 @@ class _StatCard extends StatelessWidget {
           children: [
             Text('$value', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
             const SizedBox(height: 2),
-            Text(label, style: TextStyle(fontSize: 10, color: color), textAlign: TextAlign.center),
+            Text(label, style: TextStyle(fontSize: 9, color: color), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
           ],
         ),
       ),
@@ -213,21 +213,36 @@ class _ReturnOrderCardState extends ConsumerState<_ReturnOrderCard> {
 
   Map<String, dynamic> get order => widget.order;
   List<dynamic> get items => (order['order_items'] as List?) ?? [];
+  int get totalAmount => (order['total_amount'] as num?)?.toInt() ?? 0;
 
   List<dynamic> get returnedItems =>
       items.where((i) => i['return_status'] != null).toList();
 
+  /// Calculate refund amount from items with return_status set.
+  /// Falls back to order total_amount when no items have return_status
+  /// (full-order returns where request_return didn't set item-level status).
+  /// This matches the Astro web behavior:
+  ///   refundAmountCents={refundAmount > 0 ? refundAmount : order.total_amount}
   int get refundAmountCents {
     int total = 0;
     for (final item in returnedItems) {
-      // Include 'refunded' because admin_process_return RPC marks items as 'refunded'
-      // when the return is approved (stage 1), before the actual Stripe refund (stage 2)
       if (['requested', 'approved', 'refunded'].contains(item['return_status'])) {
         total += ((item['price_at_purchase'] as num).toInt()) *
             ((item['quantity'] as num).toInt());
       }
     }
+    // Fallback: if no items have return_status, use order total (full return)
+    if (total == 0 && items.isNotEmpty) {
+      return totalAmount;
+    }
     return total;
+  }
+
+  /// Whether this is a partial return (only some items returned, not all).
+  /// If no items have return_status set, treat as full return.
+  bool get isPartialReturn {
+    if (returnedItems.isEmpty) return false; // No item-level status → full return
+    return returnedItems.length < items.length;
   }
 
   @override
@@ -295,7 +310,7 @@ class _ReturnOrderCardState extends ConsumerState<_ReturnOrderCard> {
                 isLoading: _isLoading,
                 refundAmountCents: refundAmountCents,
                 totalAmountCents: totalAmount,
-                isPartial: returnedItems.length < items.length,
+                isPartial: isPartialReturn,
                 onProcessRefund: (amount) => _processRefund(refundAmount: amount),
               ),
             ],
@@ -601,29 +616,65 @@ class _PendingReviewActions extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: OutlinedButton.icon(
+              child: OutlinedButton(
                 onPressed: onReject,
-                icon: const Icon(Icons.close, size: 16),
-                label: const Text('Rechazar', style: TextStyle(fontSize: 12)),
-                style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.error,
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.close, size: 14),
+                    SizedBox(width: 4),
+                    Flexible(
+                      child: Text('Rechazar', style: TextStyle(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Expanded(
-              child: ElevatedButton.icon(
+              child: ElevatedButton(
                 onPressed: onApproveNoStock,
-                icon: const Icon(Icons.check, size: 16),
-                label: const Text('Aprobar', style: TextStyle(fontSize: 12)),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check, size: 14),
+                    SizedBox(width: 4),
+                    Flexible(
+                      child: Text('Aprobar', style: TextStyle(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Expanded(
-              child: ElevatedButton.icon(
+              child: ElevatedButton(
                 onPressed: onApproveWithStock,
-                icon: const Icon(Icons.inventory, size: 16),
-                label: const Text('Aprobar\n+ Stock', style: TextStyle(fontSize: 11), textAlign: TextAlign.center),
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.success,
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.inventory, size: 14),
+                    SizedBox(width: 4),
+                    Flexible(
+                      child: Text('Aprobar+Stock', style: TextStyle(fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

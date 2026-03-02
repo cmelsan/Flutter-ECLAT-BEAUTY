@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/errors/failures.dart';
 import '../../domain/entities/product.dart';
@@ -175,10 +176,12 @@ class CatalogRepository {
           .select('*, category:categories(*), brand:brands(*)')
           .order('created_at', ascending: false)
           .limit(limit);
+      debugPrint('\u2705 getFeaturedProducts: ${(data as List).length} products');
       return Right(
-        (data as List).map((e) => Product.fromJson(e)).toList(),
+        data.map((e) => Product.fromJson(e)).toList(),
       );
     } catch (e) {
+      debugPrint('\u274c getFeaturedProducts error: $e');
       return Left(ServerFailure(ErrorMapper.mapSupabaseError(e)));
     }
   }

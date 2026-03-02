@@ -112,6 +112,12 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
       'price': item.effectivePrice, 
     }).toList();
 
+    debugPrint('[Checkout] RPC items: $rpcItems');
+    debugPrint('[Checkout] Total amount (cents): $totalAmount');
+    for (final item in items) {
+      debugPrint('[Checkout] Item: ${item.name} | price=${item.price} | discounted=${item.discountedPrice} | effective=${item.effectivePrice} | qty=${item.quantity} | lineTotal=${item.lineTotal}');
+    }
+
     final result = await _repo.createOrder(
       items: rpcItems,
       totalAmount: totalAmount,
@@ -202,6 +208,13 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
                    (_) async {
                      debugPrint('Payment successful!');
                      
+                     // ── Post-payment: mark as paid + decrement stock ──
+                     // The Stripe webhook also does this, but if it's slow/
+                     // down we guarantee consistency from the client side.
+                     // The webhook is idempotent (skips orders already 'paid').
+                     await _repo.updateOrderStatusToPaid(orderId);
+                     await _repo.decreaseStockForItems(rpcItems);
+
                      // Vaciar carrito tras el pago exitoso (lo hacemos usando el ref inyectado)
                      _ref.read(cartProvider.notifier).clearCart();                    
                     // IMPORTANTE: Refrescar la lista de pedidos al completar la compra
@@ -241,6 +254,8 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
         } else {
           debugPrint('No email provided, skipping Stripe');
           // No Stripe (free order or fallback)
+          await _repo.updateOrderStatusToPaid(orderId);
+          await _repo.decreaseStockForItems(rpcItems);
           _ref.read(cartProvider.notifier).clearCart();
           state = state.copyWith(
             isLoading: false,

@@ -197,8 +197,8 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
                 debugPrint('Error initializing Payment Sheet: ${failure.message}');
                 state = state.copyWith(isLoading: false, error: failure.message);
               },
-              (_) async {
-                 debugPrint('Payment Sheet initialized successfully. Presenting...');
+              (paymentIntentId) async {
+                 debugPrint('Payment Sheet initialized successfully. PI: $paymentIntentId. Presenting...');
                  // Step 3: Present Payment Sheet
                  final presentResult = await _stripe.presentPaymentSheet();
 
@@ -210,11 +210,11 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
                    (_) async {
                      debugPrint('Payment successful!');
                      
-                     // ── Post-payment: mark as paid + decrement stock ──
-                     // The Stripe webhook also does this, but if it's slow/
-                     // down we guarantee consistency from the client side.
-                     // The webhook is idempotent (skips orders already 'paid').
-                     await _repo.updateOrderStatusToPaid(orderId);
+                     // ── Post-payment: mark as paid + guardar PI ID + decrement stock ──
+                     // El webhook también lo hace, pero como el cliente marca el pedido
+                     // como 'paid' primero, el webhook lo omite por idempotencia.
+                     // Guardamos el PI ID aquí para que los reembolsos funcionen.
+                     await _repo.updateOrderStatusToPaid(orderId, paymentIntentId: paymentIntentId);
                      await _repo.decreaseStockForItems(rpcItems);
 
                      // Vaciar carrito tras el pago exitoso (lo hacemos usando el ref inyectado)

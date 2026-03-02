@@ -149,14 +149,25 @@ class CheckoutRepository {
   }
 
   /// Update order status to 'paid' after successful payment.
-  /// This ensures idempotency: the Stripe webhook will skip the order
-  /// if it's already marked as 'paid'.
-  Future<void> updateOrderStatusToPaid(String orderId) async {
+  /// También guarda el stripe_payment_intent_id para que los reembolsos funcionen.
+  /// El webhook de Stripe omite el pedido por idempotencia si ya está en 'paid',
+  /// por lo que guardamos el PI ID aquí desde el cliente.
+  Future<void> updateOrderStatusToPaid(String orderId, {String? paymentIntentId}) async {
     try {
       await _client.rpc('update_order_status', params: {
         'p_order_id': orderId,
         'p_new_status': 'paid',
       });
+      // Guardar el Payment Intent ID directamente para que los reembolsos funcionen.
+      // El webhook normalmente lo haría, pero llega después de que el cliente
+      // ya marcó el pedido como 'paid' y el webhook lo omite por idempotencia.
+      if (paymentIntentId != null && paymentIntentId.isNotEmpty) {
+        await _client
+            .from('orders')
+            .update({'stripe_payment_intent_id': paymentIntentId})
+            .eq('id', orderId);
+        debugPrint('[Checkout] stripe_payment_intent_id saved: $paymentIntentId');
+      }
     } catch (e) {
       debugPrint('[Checkout] Error updating order status to paid: $e');
     }

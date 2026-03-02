@@ -311,6 +311,7 @@ class _ReturnOrderCardState extends ConsumerState<_ReturnOrderCard> {
                 refundAmountCents: refundAmountCents,
                 totalAmountCents: totalAmount,
                 isPartial: isPartialReturn,
+                stripePaymentIntentId: order['stripe_payment_intent_id'] as String?,
                 onProcessRefund: (amount) => _processRefund(refundAmount: amount),
               ),
             ],
@@ -691,6 +692,7 @@ class _AwaitingRefundActions extends StatelessWidget {
   final int refundAmountCents;
   final int totalAmountCents;
   final bool isPartial;
+  final String? stripePaymentIntentId;
   final void Function(double? amount) onProcessRefund;
 
   const _AwaitingRefundActions({
@@ -698,6 +700,7 @@ class _AwaitingRefundActions extends StatelessWidget {
     required this.refundAmountCents,
     required this.totalAmountCents,
     required this.isPartial,
+    required this.stripePaymentIntentId,
     required this.onProcessRefund,
   });
 
@@ -705,6 +708,38 @@ class _AwaitingRefundActions extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isLoading) {
       return const Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()));
+    }
+
+    // Si no hay stripe_payment_intent_id (pedidos anteriores al fix), no se puede reembolsar via Stripe
+    if (stripePaymentIntentId == null || stripePaymentIntentId!.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.orange.withAlpha(20),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.orange.withAlpha(80)),
+        ),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.warning_amber, color: Colors.orange, size: 18),
+                SizedBox(width: 8),
+                Text('Reembolso manual requerido',
+                    style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            SizedBox(height: 6),
+            Text(
+              'Este pedido no tiene ID de pago de Stripe guardado (pedido antiguo). '
+              'Procesa el reembolso manualmente desde el panel de Stripe.',
+              style: TextStyle(fontSize: 12, color: Colors.orange),
+            ),
+          ],
+        ),
+      );
     }
 
     // For partial returns, send exact amount; for full returns, send null (Stripe refunds full charge)

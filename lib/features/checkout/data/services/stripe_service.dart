@@ -15,11 +15,13 @@ class StripeService {
       : _baseUrl = baseUrl ?? AppConstants.siteUrl;
 
   /// Initialize Stripe Payment Sheet using Astro Mobile API
-  Future<Either<Failure, void>> initPaymentSheet({
+  /// Returns the payment intent ID (e.g. "pi_xxx") extracted from the client secret.
+  /// This ID is needed to process refunds later.
+  Future<Either<Failure, String>> initPaymentSheet({
     required String orderId,
     required List<CartItem> items,
     required String email,
-    int discountAmount = 0, // Changed to int (cents)
+    int discountAmount = 0,
     String? couponId,
   }) async {
     try {
@@ -63,6 +65,10 @@ class StripeService {
         return const Left(ServerFailure('Invalid response from payment server'));
       }
 
+      // Extraer el PI ID del client secret (formato: "pi_xxx_secret_yyy")
+      final paymentIntentId = clientSecret.split('_secret_').first;
+      debugPrint('[Stripe] Payment Intent ID: $paymentIntentId');
+
       // 2. Initialize Payment Sheet
       await Stripe.instance.initPaymentSheet(
         paymentSheetParameters: SetupPaymentSheetParameters(
@@ -74,7 +80,7 @@ class StripeService {
           style: ThemeMode.light,
         ),
       );
-      return const Right(null);
+      return Right(paymentIntentId);
     } catch (e) {
       return Left(ServerFailure('Error initializing payment: $e'));
     }

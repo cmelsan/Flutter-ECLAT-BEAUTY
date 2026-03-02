@@ -6,6 +6,8 @@ import '../../../../core/constants/app_utils.dart';
 import '../../../../core/services/email_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../providers/admin_provider.dart';
+import '../../../catalog/presentation/providers/catalog_provider.dart';
+import '../../../offers/presentation/providers/offers_provider.dart';
 
 class AdminReturnsScreen extends ConsumerWidget {
   const AdminReturnsScreen({super.key});
@@ -432,6 +434,12 @@ class _ReturnOrderCardState extends ConsumerState<_ReturnOrderCard> {
           });
         }
         ref.invalidate(adminReturnsProvider);
+        // Invalidate catalog cache so product stock shows correctly after restoration
+        if (restoreStock) {
+          ref.invalidate(featuredProductsProvider);
+          ref.invalidate(enrichedFeaturedProductsProvider);
+          ref.invalidate(offersProvider);
+        }
       },
     );
   }
@@ -500,6 +508,10 @@ class _ReturnOrderCardState extends ConsumerState<_ReturnOrderCard> {
           }
         });
         ref.invalidate(adminReturnsProvider);
+        // Refresh catalog cache after refund (stock may have been restored at approval stage)
+        ref.invalidate(featuredProductsProvider);
+        ref.invalidate(enrichedFeaturedProductsProvider);
+        ref.invalidate(offersProvider);
       },
     );
   }
